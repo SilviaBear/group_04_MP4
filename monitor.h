@@ -11,5 +11,4 @@
 #include <time.h>
 
 void monitorWorkload();
-void* startMonitor(void* unusedParamx
-                   );
+void* startMonitor(void* unusedParam);

@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <netdb.h>
-#include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,7 +14,7 @@
 #include "state_manager.h"
 #include "data_structure.h"
 #include "transfer_manager.h"
-
+#include "adaptor.h"
 /*The size of a job is SIZE_PER_JOB * sizeof(double),
   which is 8 bytes * 8 bits/ bytes * 1024 * 1024 * 32 / 2048 = 1 Mb.
   The sending time of one job (ignore header) is 1Mb / 10 Mbps = 0.1 s
@@ -24,15 +24,13 @@
 */
 #define NETWORK_DELAY 208
 
-extern SIZE_PER_JOB;
+extern long SIZE_PER_JOB;
 
 pthread_cond_t status_update_cv = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t status_update_m = PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t queue_m;
 extern pthread_cond_t queue_cv;
 
-status_info* local_status;
-status_info* remote_status;
 
 //The time in ms where worker thread start on working
 struct timeval start_work;
@@ -40,17 +38,19 @@ struct timeval start_work;
 extern int isLocal;
 extern double* queue_head;
 extern double* jobs_head;
+extern status_info* local_status;
+extern status_info* remote_status;
 //Transfer strategy, return 1 if decide to transfer
-void decideTransfer();
+/*void decideTransfer();
 void* work_func(void* unusedParam);
 void* startMonitor(void* unusedParam);
 void* startStateManager(void* unusedParam);
 void* accept_job(void* unusedParam);
-void move_head();
+void move_head();*/
 //Calculate estimated completion time
-double calculateECT();
+double calculateECT(status_info* status);
 
-void adaptor_func(void* unusedParam) {
+void* adaptor_func(void* unusedParam) {
   pthread_t workingThread, monitorThread, remoteStateThread, acceptThread;
   pthread_create(&workingThread, 0, work_func, (void*)0);
   pthread_create(&monitorThread, 0, startMonitor, (void*)0);
@@ -89,7 +89,7 @@ void* work_func(void* unusedParam) {
   struct timespec sleepFor;
   struct timeval workStart;
   struct timeval workEnd;
-  gettimeofday(&start_work);
+  gettimeofday(&start_work, 0);
   while(1) {
     pthread_mutex_lock(&queue_m);
     while(local_status->queue_length == 0) {
@@ -97,7 +97,7 @@ void* work_func(void* unusedParam) {
     }
     pthread_mutex_unlock(&queue_m);
     while(local_status->queue_length > 0) {
-      gettimeofday(&workStart);
+      gettimeofday(&workStart, 0);
       double* current = queue_head;
       printf("Start working on: %lu\n", isLocal? (queue_head - jobs_head)/SIZE_PER_JOB : (jobs_head - queue_head)/SIZE_PER_JOB);
       int i;
@@ -112,7 +112,7 @@ void* work_func(void* unusedParam) {
       move_head();
       local_status->queue_length--;
       pthread_mutex_unlock(&queue_m);
-      gettimeofday(&workEnd);
+      gettimeofday(&workEnd, 0);
       //thread working time in ms
       long workTime = workEnd.tv_usec - workStart.tv_usec;
       sleepFor.tv_sec = 0;

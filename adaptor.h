@@ -16,12 +16,9 @@
 
 #define NETWORK_DELAY 208
 
-status_info* local_status;
-status_info* remote_status;
-
 //Transfer strategy, return 1 if decide to transfer
 void decideTransfer();
-void work_func(void* unusedParam);
+void* work_func(void* unusedParam);
 void move_head();
 //Calculate estimated completion time
 double calculateECT();

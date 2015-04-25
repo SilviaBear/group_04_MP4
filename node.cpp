@@ -40,6 +40,9 @@ int control_sockfd;
 int accept_data_sockfd;
 int accept_control_sockfd;
 
+status_info* local_status;
+status_info* remote_status;
+
 /*
 Every node will be of initial space of WORKSIZE * 2 to avoid realloc overhead and ensurethe data consistency in memory.
 As the local node initiate the workload, the implicit queue structure use the most significant bit of jobs* as queue head.
@@ -62,8 +65,6 @@ When working, it always works on from thr queue head; when transfering, it alway
 double* jobs_head;
 //The pointer of the boundary of finished and unfinished jobs
 double* queue_head;
-
-extern status_info* remote_status;
 
 //Data structre for remote socket if it is local node
 struct sockaddr_storage their_addr;

@@ -11,8 +11,7 @@
 #include <pthread.h>
 #include <time.h>
 
-int sockfd;
 //Interval for update current status to remote node
-long send_interval;
+//long send_interval;
 
 void* startStateManager(void* unusedParam);

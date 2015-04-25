@@ -4,7 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <netdb.h>
-#include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <pthread.h>
 #include "data_structure.h"
@@ -22,8 +22,6 @@ extern pthread_mutex_t status_update_m;
 extern status_info* local_status;
 
 struct timeval temp_time;
-
-extern struct timeval start_work;
 
 void* getCPUUsage();
 void* getTotalRunningTime();
@@ -60,7 +58,7 @@ void* getCPUUsage() {
 
 void* getTotalRunningTime() {
   struct timeval t;
-  gettimeofday(&t);
+  gettimeofday(&t, 0);
 }
 
 void* listenToUserCommand(void* unusedParam) {

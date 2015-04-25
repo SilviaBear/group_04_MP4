@@ -10,8 +10,6 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-int sockfd;
-
 double* find_end();
 void* transfer_job(int num, int isFinished);
 void* accept_job(void* unusedParam);

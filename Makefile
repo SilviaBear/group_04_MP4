@@ -1,6 +1,6 @@
 all: setup
 
 setup: 
-	gcc -g -pthread -o node node.c monitor.c adaptor.c state_manager.c transfer_manager.c
+	clang -g -pthread -o node node.cpp monitor.cpp adaptor.cpp state_manager.cpp transfer_manager.cpp
 clean:
 	rm *.o node
