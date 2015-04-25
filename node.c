@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
     workload_init();
   }
   transfer_manager_init();
+  state_manager_init();
   pthread_t adaptorThread;
   pthread_create(&adaptorThread, 0, adaptor_func, (void*)0);
   if(isLocal) {

@@ -59,9 +59,9 @@ void* transfer_job(int num) {
   for(i = 0; i < num; i++) {
     //If local node, transfer the jobs from last significant bit
     if(isLocal) {
-      printf("Local node send %d jobs start from addr %p\n", num, queue_end);
+      printf("%lf\n", queue_end + i * SIZE_PER_JOB);
       if((numbytes = sendto(sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
-        perror("sendto");
+        perror("transfer_job sendto");
         exit(1);
       }
     }

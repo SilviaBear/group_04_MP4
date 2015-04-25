@@ -26,6 +26,10 @@ int sockfd;
 //Interval for update current status to remote node
 long send_interval = 50;
 
+void state_manager_init() {
+  sockfd = isLocal? control_sockfd : accept_control_sockfd;
+}
+
 void* listenOnControl(void* unusedParam) {
   int numbytes;
   while(1) {
