@@ -91,6 +91,8 @@ int main(int argc, char *argv[]) {
   double* jobs = (double*)malloc(sizeof(double) * WORKSIZE);
   jobs_head = isLocal? jobs : jobs + (INIT_NUM_OF_JOBS - 1) * SIZE_PER_JOB;
   queue_head = jobs_head;
+  local_status = (status_info*)malloc(sizeof(status_info));
+  remote_status = (status_info*)malloc(sizeof(status_info));
   //If this node is remote, do not need to specify the remote host as it will listen for connections, but need to bind to local ports
   if(!isLocal) {
     local_data_port = argv[2];
@@ -99,6 +101,7 @@ int main(int argc, char *argv[]) {
     control_sockfd = setupServerSocket(local_control_port);
     socklen_t sin_size = sizeof(their_addr);
     data_sockfd = accept(data_sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    printf("Accept connection from local node\n");
     if(data_sockfd == -1) {
       perror("accept data channel");
       exit(1);
@@ -172,6 +175,7 @@ int setupServerSocket(void* port) {
     fprintf(stderr, "server: failed to bind\n");
     exit(1);
   }
+  printf("Remote node bind to port %s\n", (char*)port);
   freeaddrinfo(servinfo); 
   if (listen(sockfd, BACKLOG) == -1) {
     perror("listen");
@@ -204,10 +208,12 @@ int setupClientSocket(char* port) {
     }
     break;
   }
+  
   if (p == NULL) {
     fprintf(stderr, "client: failed to connect\n");
     exit(1);
   }
+  printf("Local node: connect to remote node at %s:%s\n", remote_hostname, port);
   inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
   return sockfd;
 }
