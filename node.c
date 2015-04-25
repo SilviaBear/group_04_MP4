@@ -72,6 +72,7 @@ struct addrinfo hints, *servinfo, *p;
 socklen_t addr_len;
 
 pthread_mutex_t queue_m = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 
 int setupServerSocket(void* port);
 int setupClientSocket();

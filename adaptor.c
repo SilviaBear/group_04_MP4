@@ -28,6 +28,7 @@ extern SIZE_PER_JOB;
 pthread_cond_t status_update_cv = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t status_update_m = PTHREAD_MUTEX_INITIALIZER;
 extern pthread_mutex_t queue_m;
+extern pthread_cond_t queue_cv;
 
 status_info* local_status;
 status_info* remote_status;
@@ -82,28 +83,35 @@ void* work_func(void* unusedParam) {
   struct timespec sleepFor;
   struct timeval workStart;
   struct timeval workEnd;
-  while(local_status->queue_length > 0) {
-    gettimeofday(&workStart);
-    double* current = queue_head;
-    int i;
-    int j;
-    for(i = 0; i < SIZE_PER_JOB; i++) {
-      for(j = 0; j < 1000; j++) {
-        *current += 1.111111;
-      }
-      current++;
-    }
+  while(1) {
     pthread_mutex_lock(&queue_m);
-    move_head();
-    local_status->queue_length--;
+    while(local_status->queue_length == 0) {
+      pthread_cond_wait(&queue_cv, &queue_m);
+    }
     pthread_mutex_unlock(&queue_m);
-    gettimeofday(&workEnd);
-    //thread working time in ms
-    long workTime = workEnd.tv_usec - workStart.tv_usec;
-    sleepFor.tv_sec = 0;
-    //sleep time in ns
-    sleepFor.tv_nsec = local_status->trottling_value * workTime * 1000 * 1000;
-    nanosleep(&sleepFor, 0);
+    while(local_status->queue_length > 0) {
+      gettimeofday(&workStart);
+      double* current = queue_head;
+      int i;
+      int j;
+      for(i = 0; i < SIZE_PER_JOB; i++) {
+	for(j = 0; j < 1000; j++) {
+	  *current += 1.111111;
+	}
+	current++;
+      }
+      pthread_mutex_lock(&queue_m);
+      move_head();
+      local_status->queue_length--;
+      pthread_mutex_unlock(&queue_m);
+      gettimeofday(&workEnd);
+      //thread working time in ms
+      long workTime = workEnd.tv_usec - workStart.tv_usec;
+      sleepFor.tv_sec = 0;
+      //sleep time in ns
+      sleepFor.tv_nsec = local_status->trottling_value * workTime * 1000 * 1000;
+      nanosleep(&sleepFor, 0);
+    }
   }
   transferBack();
 }

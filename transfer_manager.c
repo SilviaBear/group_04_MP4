@@ -26,6 +26,8 @@ extern double* jobs_head;
 extern status_info* local_status;
 
 extern pthread_mutex_t queue_m;
+extern pthread_mutex_t status_update_m;
+extern pthread_cond_t queue_cv;
 
 int sockfd;
 
@@ -47,12 +49,16 @@ void* transfer_job(int num) {
     exit(1);
   }
   pthread_mutex_lock(&queue_m);
+  pthread_mutex_lock(&status_update_m);
+  local_status->queue_length -= num;
+  pthread_mutex_unlock(&status_update_m);
   double* queue_end = find_end();
   int i;
   //Send each job trunk
   for(i = 0; i < num; i++) {
     //If local node, transfer the jobs from last significant bit
     if(isLocal) {
+      printf("Local node send %d jobs start from addr %p\n", num, queue_end);
       if((numbytes = sendto(sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("sendto");
         exit(1);
@@ -103,6 +109,7 @@ void accept_job() {
       }
       local_status->queue_length += num;
       pthread_mutex_unlock(&queue_m);
+      pthread_cond_broadcast(&queue_cv);
     }
   }
 }
