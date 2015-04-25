@@ -84,7 +84,7 @@ void workload_init();
 int main(int argc, char *argv[]) {
   if(argc != 7) {
     //If used as remote node (passive), set local_data_port and local_control_port as "NULL"
-    printf("Usage: isLocal, local_data_port, local_control_port, remote_hostname, remote_data_port, remote_control_port, isLocal\n");
+    printf("Usage: isLocal, local_data_port, local_control_port, remote_hostname, remote_data_port, remote_control_port\n");
     exit(1);
   }
   isLocal = atoi(argv[1]);
@@ -95,8 +95,8 @@ int main(int argc, char *argv[]) {
   if(!isLocal) {
     local_data_port = argv[2];
     local_control_port = argv[3];
-    setupServerSocket(local_data_port);
-    setupServerSocket(local_control_port);
+    data_sockfd = setupServerSocket(local_data_port);
+    control_sockfd = setupServerSocket(local_control_port);
     socklen_t sin_size = sizeof(their_addr);
     data_sockfd = accept(data_sockfd, (struct sockaddr *)&their_addr, &sin_size);
     if(data_sockfd == -1) {
@@ -114,8 +114,8 @@ int main(int argc, char *argv[]) {
     remote_hostname = argv[4];
     remote_data_port = argv[5];
     remote_control_port = argv[6];
-    setupClientSocket(remote_data_port);
-    setupClientSocket(remote_control_port);
+    data_sockfd = setupClientSocket(remote_data_port);
+    control_sockfd = setupClientSocket(remote_control_port);
     workload_init();
   }
   pthread_t adaptorThread;
