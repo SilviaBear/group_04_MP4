@@ -67,6 +67,10 @@ void adaptor_func(void* unusedParam) {
       decideTransfer();
     }
   }
+  pthread_join(workingThread, NULL);
+  pthread_join(monitorThread, NULL);
+  pthread_join(remoteStateThread, NULL);
+  pthread_join(acceptThread, NULL);
 }
 
 void decideTransfer() {

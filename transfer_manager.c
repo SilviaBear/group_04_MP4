@@ -34,9 +34,6 @@ void* accept_job(void* unusedParam);
 
 void transfer_manager_init() {
   sockfd = isLocal? data_sockfd : accept_data_sockfd;
-  pthread_t acceptThread;
-  pthread_create(&acceptThread, 0, accept_job, (void*)0);
-  pthread_join(acceptThread, NULL);
 }
 
 double* find_end();
@@ -87,7 +84,7 @@ void* accept_job(void* unusedParam) {
   char* recvBuf = (char*)malloc(256 * sizeof(char));
   while(1) {
     if((numbytes = recvfrom(sockfd, recvBuf, 256, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-      perror("recvfrom");
+      perror("accept_job sentinel recvfrom");
       exit(1);
     }
     if(strstr(recvBuf, "START")) {
@@ -99,7 +96,7 @@ void* accept_job(void* unusedParam) {
         //For local node, put new jobs after the least significant bit of current job
         if(isLocal) {
           if((numbytes = recvfrom(sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-            perror("recvfrom");
+            perror("accept_job recvfrom");
             exit(1);
           }
         }

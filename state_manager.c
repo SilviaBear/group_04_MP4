@@ -30,7 +30,7 @@ void* listenOnControl(void* unusedParam) {
   int numbytes;
   while(1) {
     if((numbytes = recvfrom(sockfd, remote_status, sizeof(status_info), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-      perror("recvfrom");
+      perror("control channel recvfrom");
       continue;
     }
     pthread_cond_broadcast(&status_update_cv);

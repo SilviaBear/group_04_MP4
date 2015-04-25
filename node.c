@@ -101,13 +101,13 @@ int main(int argc, char *argv[]) {
     data_sockfd = setupServerSocket(local_data_port);
     control_sockfd = setupServerSocket(local_control_port);
     socklen_t sin_size = sizeof(their_addr);
-    data_sockfd = accept(data_sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    accept_data_sockfd = accept(data_sockfd, (struct sockaddr *)&their_addr, &sin_size);
     printf("Accept connection from local node\n");
-    if(data_sockfd == -1) {
+    if(accept_data_sockfd == -1) {
       perror("accept data channel");
       exit(1);
     }
-    control_sockfd = accept(control_sockfd, (struct sockaddr *)&their_addr, &sin_size);
+    accept_control_sockfd = accept(control_sockfd, (struct sockaddr *)&their_addr, &sin_size);
     if(control_sockfd == -1) {
       perror("accept control channel");
       exit(1);
