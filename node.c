@@ -179,12 +179,11 @@ int setupServerSocket(void* port) {
     exit(1);
   }
   printf("Remote node bind to port %s\n", (char*)port);
-  freeaddrinfo(servinfo); 
   if (listen(sockfd, BACKLOG) == -1) {
     perror("listen");
     exit(1);
   }
-  inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
+  //inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
   return sockfd; 
 }
 

@@ -47,8 +47,6 @@ void move_head();
 double calculateECT();
 
 void adaptor_func(void* unusedParam) {
-  local_status = (status_info*)malloc(sizeof(status_info));
-  remote_status = (status_info*)malloc(sizeof(status_info));
   pthread_t workingThread, monitorThread, remoteStateThread, acceptThread;
   pthread_create(&workingThread, 0, work_func, (void*)0);
   pthread_create(&monitorThread, 0, startMonitor, (void*)0);
