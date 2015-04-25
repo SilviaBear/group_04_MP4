@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdio.h> 
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
@@ -34,8 +34,12 @@ extern pthread_cond_t queue_cv;
 status_info* local_status;
 status_info* remote_status;
 
+//The time in ms where worker thread start on working
+struct timeval start_work;
+
 extern int isLocal;
 extern double* queue_head;
+extern double* jobs_head;
 //Transfer strategy, return 1 if decide to transfer
 void decideTransfer();
 void* work_func(void* unusedParam);
@@ -81,13 +85,11 @@ double calculateECT(status_info* status) {
   return status->queue_length / status->trottling_value / status->cpu_usage;
 }
 
-void transferBack() {
-}
-
 void* work_func(void* unusedParam) {
   struct timespec sleepFor;
   struct timeval workStart;
   struct timeval workEnd;
+  gettimeofday(&start_work);
   while(1) {
     pthread_mutex_lock(&queue_m);
     while(local_status->queue_length == 0) {
@@ -97,13 +99,14 @@ void* work_func(void* unusedParam) {
     while(local_status->queue_length > 0) {
       gettimeofday(&workStart);
       double* current = queue_head;
+      printf("Start working on: %lu\n", isLocal? (queue_head - jobs_head)/SIZE_PER_JOB : (jobs_head - queue_head)/SIZE_PER_JOB);
       int i;
       int j;
       for(i = 0; i < SIZE_PER_JOB; i++) {
-	for(j = 0; j < 1000; j++) {
-	  *current += 1.111111;
-	}
-	current++;
+        for(j = 0; j < 1000; j++) {
+          *current += 1.111111;
+        }
+        current++;
       }
       pthread_mutex_lock(&queue_m);
       move_head();
@@ -114,11 +117,18 @@ void* work_func(void* unusedParam) {
       long workTime = workEnd.tv_usec - workStart.tv_usec;
       sleepFor.tv_sec = 0;
       //sleep time in ns
-      sleepFor.tv_nsec = local_status->trottling_value * workTime * 1000 * 1000;
+      sleepFor.tv_nsec = (long)((1 - local_status->trottling_value)/local_status->trottling_value) * workTime * 1000 * 1000;
       nanosleep(&sleepFor, 0);
     }
+    if(local_status->queue_length == 0) {
+      break;
+    }
   }
-  transferBack();
+  //Remote node gather data trunk back to local node
+  if(!isLocal) {
+    int num_jobs_finished = (jobs_head - queue_head)/SIZE_PER_JOB;
+    transfer_job(num_jobs_finished, 1);
+  }
 }
 
 void move_head() {

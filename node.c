@@ -75,12 +75,14 @@ pthread_mutex_t queue_m = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cv = PTHREAD_COND_INITIALIZER;
 
 int setupServerSocket(void* port);
-int setupClientSocket();
+int setupClientSocket(void* port);
 void* get_in_addr(struct sockaddr *sa);
 void* adapter_func();
 void transfer_manager_init();
-void* transfer_job(int num);
+void* transfer_job(int num, int isFinished);
 void workload_init();
+void state_manager_init();
+void transfer_manager_init();
 
 int main(int argc, char *argv[]) {
   if(argc != 7) {
@@ -93,7 +95,9 @@ int main(int argc, char *argv[]) {
   jobs_head = isLocal? jobs : jobs + (INIT_NUM_OF_JOBS - 1) * SIZE_PER_JOB;
   queue_head = jobs_head;
   local_status = (status_info*)malloc(sizeof(status_info));
+  local_status->trottling_value = 1.0;
   remote_status = (status_info*)malloc(sizeof(status_info));
+  remote_status->trottling_value = 1.0;
   //If this node is remote, do not need to specify the remote host as it will listen for connections, but need to bind to local ports
   if(!isLocal) {
     local_data_port = argv[2];
@@ -127,7 +131,7 @@ int main(int argc, char *argv[]) {
   pthread_t adaptorThread;
   pthread_create(&adaptorThread, 0, adaptor_func, (void*)0);
   if(isLocal) {
-    transfer_job(INIT_NUM_OF_JOBS / 2);
+    transfer_job(INIT_NUM_OF_JOBS / 2, 0);
   }
   pthread_join(adaptorThread, NULL);
 }
@@ -187,14 +191,14 @@ int setupServerSocket(void* port) {
   return sockfd; 
 }
 
-int setupClientSocket(char* port) {
+int setupClientSocket(void* port) {
   int sockfd;
   int rv;
   char s[INET6_ADDRSTRLEN];
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
-  if((rv = getaddrinfo(remote_hostname, port, &hints, &servinfo)) != 0){
+  if((rv = getaddrinfo(remote_hostname, (char*)port, &hints, &servinfo)) != 0){
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     exit(1);
   }
@@ -215,7 +219,7 @@ int setupClientSocket(char* port) {
     fprintf(stderr, "client: failed to connect\n");
     exit(1);
   }
-  printf("Local node: connect to remote node at %s:%s\n", remote_hostname, port);
+  printf("Local node: connect to remote node at %s:%s\n", remote_hostname, (char*)port);
   inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
   return sockfd;
 }

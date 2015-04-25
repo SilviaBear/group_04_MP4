@@ -23,8 +23,8 @@ extern struct sockaddr_storage their_addr;
 extern struct addrinfo hints, *servinfo, *p;
 extern socklen_t addr_len;
 int sockfd;
-//Interval for update current status to remote node
-long send_interval = 50;
+//Interval for update current status to remote node in ms
+long send_interval = 1;
 
 void state_manager_init() {
   sockfd = isLocal? control_sockfd : accept_control_sockfd;
@@ -44,14 +44,14 @@ void* listenOnControl(void* unusedParam) {
 void* sendToControl(void* unusedParam) {
   int numbytes;
   struct timespec sleepFor;
-  sleepFor.tv_sec = 0;
-  sleepFor.tv_nsec = send_interval * 1000 * 1000;
+  sleepFor.tv_sec = send_interval;
+  sleepFor.tv_nsec = 0;
   while(1) {
+    printf("Current State: trottling_value %fl, cpu_usage %fl, queue_length %d\n", local_status->trottling_value, local_status->cpu_usage, local_status->queue_length);
     if((numbytes = sendto(sockfd, local_status, sizeof(status_info), 0, p->ai_addr, p->ai_addrlen)) == -1) {
       perror("sendto");
       continue;
     }
-    pthread_cond_broadcast(&status_update_cv);
     nanosleep(&sleepFor, 0);
   }
 }
