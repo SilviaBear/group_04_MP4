@@ -122,12 +122,13 @@ int main(int argc, char *argv[]) {
     control_sockfd = setupClientSocket(remote_control_port);
     workload_init();
   }
+  transfer_manager_init();
   pthread_t adaptorThread;
   pthread_create(&adaptorThread, 0, adaptor_func, (void*)0);
-  transfer_manager_init();
   if(isLocal) {
     transfer_job(INIT_NUM_OF_JOBS / 2);
   }
+  pthread_join(adaptorThread, NULL);
 }
 
 void workload_init() {

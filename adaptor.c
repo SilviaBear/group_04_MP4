@@ -13,6 +13,7 @@
 #include "monitor.h"
 #include "state_manager.h"
 #include "data_structure.h"
+#include "transfer_manager.h"
 
 /*The size of a job is SIZE_PER_JOB * sizeof(double),
   which is 8 bytes * 8 bits/ bytes * 1024 * 1024 * 32 / 2048 = 1 Mb.
@@ -40,6 +41,7 @@ void decideTransfer();
 void* work_func(void* unusedParam);
 void* startMonitor(void* unusedParam);
 void* startStateManager(void* unusedParam);
+void* accept_job(void* unusedParam);
 void move_head();
 //Calculate estimated completion time
 double calculateECT();
@@ -47,11 +49,12 @@ double calculateECT();
 void adaptor_func(void* unusedParam) {
   local_status = (status_info*)malloc(sizeof(status_info));
   remote_status = (status_info*)malloc(sizeof(status_info));
-  pthread_t workingThread, monitorThread, remoteStateThread;
+  pthread_t workingThread, monitorThread, remoteStateThread, acceptThread;
   pthread_create(&workingThread, 0, work_func, (void*)0);
   pthread_create(&monitorThread, 0, startMonitor, (void*)0);
   pthread_create(&remoteStateThread, 0, startStateManager, (void*)0);
-  //Local node decide the transfer strategy
+  pthread_create(&acceptThread, 0, accept_job, (void*)0);
+//Local node decide the transfer strategy
   if(isLocal) {
     while(1) {
       int sleep = 1;

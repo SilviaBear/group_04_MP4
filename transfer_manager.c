@@ -30,9 +30,13 @@ extern pthread_mutex_t status_update_m;
 extern pthread_cond_t queue_cv;
 
 int sockfd;
+void* accept_job(void* unusedParam);
 
 void transfer_manager_init() {
   sockfd = isLocal? data_sockfd : accept_data_sockfd;
+  pthread_t acceptThread;
+  pthread_create(&acceptThread, 0, accept_job, (void*)0);
+  pthread_join(acceptThread, NULL);
 }
 
 double* find_end();
@@ -78,7 +82,7 @@ void* transfer_job(int num) {
   printf("Transfer work to remote node: %d trunks\n", num);
 }
 
-void accept_job() {
+void* accept_job(void* unusedParam) {
   int numbytes;
   char* recvBuf = (char*)malloc(256 * sizeof(char));
   while(1) {
