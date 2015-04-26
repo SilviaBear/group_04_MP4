@@ -27,6 +27,7 @@ extern double* queue_head;
 extern double* jobs_head;
 extern int isLocal;
 struct timeval temp_time;
+extern int shouldUpdate;
 
 void getCPUUsage();
 void getTimePerJob();
@@ -40,11 +41,15 @@ void* startMonitor(void* unusedParam) {
   sleepFor.tv_sec = 5;
   sleepFor.tv_nsec = 0;
   while(1) {
+    if(!shouldUpdate) {
+      break;
+    }
     getCPUUsage();
     getTimePerJob();
     nanosleep(&sleepFor, 0);
     pthread_cond_broadcast(&status_update_cv);
   }
+  return NULL;
 }
 
 void getCPUUsage() {
