@@ -48,8 +48,8 @@ void* listenOnControl(void* unusedParam) {
       transfer_job(transfer_size, 0);
     }
     else {
-      remote_status = (status_info*)recvBuf;
-      printf("Current remote state: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", remote_status->trottling_value, remote_status->cpu_usage, remote_status->queue_length, remote_status->time_per_job); 
+      memcpy(remote_status, recvBuf, sizeof(status_info);
+      //printf("Current remote state: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", remote_status->trottling_value, remote_status->cpu_usage, remote_status->queue_length, remote_status->time_per_job); 
     }
     pthread_cond_broadcast(&status_update_cv);
   }
@@ -74,7 +74,7 @@ void* sendToControl(void* unusedParam) {
       request_num = 0;
       printf("Initial transfer request to remote node.\n");
     }
-    printf("Current State: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", local_status->trottling_value, local_status->cpu_usage, local_status->queue_length, local_status->time_per_job);
+    //printf("Current State: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", local_status->trottling_value, local_status->cpu_usage, local_status->queue_length, local_status->time_per_job);
     if((numbytes = sendto(transfer_sockfd, local_status, sizeof(status_info), 0, p->ai_addr, p->ai_addrlen)) == -1) {
       perror("sendto");
       continue;

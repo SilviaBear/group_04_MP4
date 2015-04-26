@@ -39,7 +39,7 @@ void transfer_manager_init() {
 double* find_end();
 
 void* transfer_job(int num, int isFinished) {
-  if(num > local_status->queue_length) {
+  if(num > local_status->queue_length && !isFinished) {
     printf("Do no need to transfer request %d queue_length %d\n", num, local_status->queue_length);
     return NULL;
   }
