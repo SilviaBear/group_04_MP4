@@ -63,12 +63,7 @@ void* adaptor_func(void* unusedParam) {
         sleep = 0;
       }
       pthread_mutex_unlock(&status_update_m);
-      //Start decision after 30 sec when the performance is stable
-      if(round > 30) {
-        printf("Start to decide transfer jobs\n");
-        decideTransfer();
-      }
-      round++;
+      decideTransfer();
     }
   }
   pthread_join(workingThread, NULL);
@@ -84,15 +79,16 @@ int getTransferSize(double sender_ECT, double sender_rate, double receiver_ECT, 
 void decideTransfer() {
   double local_ECT = calculateECT(local_status);
   double remote_ECT = calculateECT(remote_status);
-  printf("remote_time_per_job %lu\n", remote_status->time_per_job);
+  printf("remote_time_per_job %lu queue_length %d cpu %fl ECT %fl \n", remote_status->time_per_job, remote_status->queue_length, remote_status->cpu_usage, remote_ECT);
+  printf("local_time_per_job %lu queue_length %d cpu %fl ECT %fl \n", local_status->time_per_job, local_status->queue_length, local_status->cpu_usage, local_ECT);  
   //Transfer jobs to remote node
-  if(local_ECT > remote_ECT && remote_status->cpu_usage < 0.95 && local_status->time_per_job < NETWORK_DELAY) {
+  if(local_ECT > remote_ECT && /*remote_status->cpu_usage < 0.95 &&*/ local_status->time_per_job > NETWORK_DELAY) {
     int num_jobs = getTransferSize(local_ECT, local_status->time_per_job, remote_ECT, remote_status->time_per_job);
     printf("Decide to transfer %d job\n", num_jobs);
     transfer_job(num_jobs, 0);
   }
   //Require remote node to transfer
-  else if(remote_ECT > local_ECT && local_status->cpu_usage < 0.95 && remote_status->time_per_job < NETWORK_DELAY) {
+  else if(remote_ECT > local_ECT && /*local_status->cpu_usage < 0.95 && */remote_status->time_per_job > NETWORK_DELAY) {
     request_num = getTransferSize(remote_ECT, remote_status->time_per_job, local_ECT, local_status->time_per_job);
     printf("Decide to request remote to transfer %d job\n", request_num);
   }

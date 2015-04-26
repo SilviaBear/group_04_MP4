@@ -37,7 +37,7 @@ void* startMonitor(void* unusedParam) {
   pthread_t inputThread;
   pthread_create(&inputThread, 0, listenToUserCommand, (void*)0);
   struct timespec sleepFor;
-  sleepFor.tv_sec = 1;
+  sleepFor.tv_sec = 5;
   sleepFor.tv_nsec = 0;
   while(1) {
     getCPUUsage();

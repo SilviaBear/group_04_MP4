@@ -25,8 +25,8 @@ extern struct addrinfo hints, *servinfo, *p;
 extern socklen_t addr_len;
 extern int request_num;
 int transfer_sockfd;
-//Interval for update current status to remote node in ms
-long send_interval = 1;
+//Interval for update current status to remote node in s
+long send_interval = 5;
 
 void* transfer_job(int num, int isFinished);
 
@@ -48,7 +48,7 @@ void* listenOnControl(void* unusedParam) {
       transfer_job(transfer_size, 0);
     }
     else {
-      memcpy(remote_status, recvBuf, sizeof(status_info);
+      memcpy(remote_status, recvBuf, sizeof(status_info));
       //printf("Current remote state: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", remote_status->trottling_value, remote_status->cpu_usage, remote_status->queue_length, remote_status->time_per_job); 
     }
     pthread_cond_broadcast(&status_update_cv);
