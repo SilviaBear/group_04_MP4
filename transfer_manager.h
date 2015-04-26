@@ -1,3 +1,5 @@
+#ifndef TRANSFER_MANAGER_H
+#define TRANSFER_MANAGER_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -14,3 +16,4 @@ double* find_end();
 void* transfer_job(int num, int isFinished);
 void* accept_job(void* unusedParam);
 void transfer_job_init();
+#endif

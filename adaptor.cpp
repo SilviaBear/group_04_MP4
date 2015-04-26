@@ -22,7 +22,7 @@
   RTT = 100 ms + 54 ms * 2 = 208 ms.
   Packet loss rate is rather small and is ignorable in our case.
 */
-#define NETWORK_DELAY 208
+#define NETWORK_DELAY 208 * 1000
 
 extern long SIZE_PER_JOB;
 
@@ -33,20 +33,19 @@ extern pthread_cond_t queue_cv;
 
 
 //The time in ms where worker thread start on working
-struct timeval start_work;
+long initialTime;
+
+//If local node, the requested number of jobs to be transferred from remote node
+int request_num = -1;
+
+//Only start decision after local node is stably working, we set it to be after 10 sec
+int start_decision = 0;
 
 extern int isLocal;
 extern double* queue_head;
 extern double* jobs_head;
 extern status_info* local_status;
 extern status_info* remote_status;
-//Transfer strategy, return 1 if decide to transfer
-/*void decideTransfer();
-void* work_func(void* unusedParam);
-void* startMonitor(void* unusedParam);
-void* startStateManager(void* unusedParam);
-void* accept_job(void* unusedParam);
-void move_head();*/
 //Calculate estimated completion time
 double calculateECT(status_info* status);
 
@@ -54,9 +53,9 @@ void* adaptor_func(void* unusedParam) {
   pthread_t workingThread, monitorThread, remoteStateThread, acceptThread;
   pthread_create(&workingThread, 0, work_func, (void*)0);
   pthread_create(&monitorThread, 0, startMonitor, (void*)0);
-  pthread_create(&remoteStateThread, 0, startStateManager, (void*)0);
+  //pthread_create(&remoteStateThread, 0, startStateManager, (void*)0);
   pthread_create(&acceptThread, 0, accept_job, (void*)0);
-//Local node decide the transfer strategy
+  //Local node decide the transfer strategy
   if(isLocal) {
     while(1) {
       int sleep = 1;
@@ -66,36 +65,60 @@ void* adaptor_func(void* unusedParam) {
         sleep = 0;
       }
       pthread_mutex_unlock(&status_update_m);
-      decideTransfer();
+      if(start_decision) {
+        //  printf("Start to decide transfer jobs\n");
+        decideTransfer();
+      }
     }
   }
   pthread_join(workingThread, NULL);
   pthread_join(monitorThread, NULL);
-  pthread_join(remoteStateThread, NULL);
+  //pthread_join(remoteStateThread, NULL);
   pthread_join(acceptThread, NULL);
+  return NULL;
 }
 
+int getTransferSize(double sender_ECT, double sender_rate, double receiver_ECT, double receiver_rate) {
+  return (int)(0.8 * (sender_ECT - receiver_ECT) / (sender_rate + receiver_rate));
+}
 void decideTransfer() {
   double local_ECT = calculateECT(local_status);
   double remote_ECT = calculateECT(remote_status);
-  
+  printf("remote_time_per_job %lu\n", remote_status->time_per_job);
+  //Transfer jobs to remote node
+  if(local_ECT > remote_ECT && remote_status->cpu_usage < 0.95 && local_status->time_per_job < NETWORK_DELAY) {
+    int num_jobs = getTransferSize(local_ECT, local_status->time_per_job, remote_ECT, remote_status->time_per_job);
+    printf("Decide to transfer %d job\n", num_jobs);
+    transfer_job(num_jobs, 0);
+  }
+  //Require remote node to transfer
+  else if(remote_ECT > local_ECT && local_status->cpu_usage < 0.95 && remote_status->time_per_job < NETWORK_DELAY) {
+    request_num = getTransferSize(remote_ECT, remote_status->time_per_job, local_ECT, local_status->time_per_job);
+    printf("Decide to request remote to transfer %d job\n", request_num);
+  }
 }
 
 double calculateECT(status_info* status) {
-  return status->queue_length / status->trottling_value / status->cpu_usage;
+  return status->queue_length * status->time_per_job;
 }
 
 void* work_func(void* unusedParam) {
+  printf("Working thread start\n");
   struct timespec sleepFor;
   struct timeval workStart;
   struct timeval workEnd;
-  gettimeofday(&start_work, 0);
+  struct timeval start_work;
   while(1) {
+    printf("Wait before lock\n");
     pthread_mutex_lock(&queue_m);
+    printf("Local queue_length: %d\n", local_status->queue_length);
     while(local_status->queue_length == 0) {
       pthread_cond_wait(&queue_cv, &queue_m);
     }
     pthread_mutex_unlock(&queue_m);
+    gettimeofday(&start_work, 0);
+    initialTime = start_work.tv_sec * 1000 * 1000 + start_work.tv_usec;
+    printf("Get initial working time \n");
     while(local_status->queue_length > 0) {
       gettimeofday(&workStart, 0);
       double* current = queue_head;
@@ -129,6 +152,7 @@ void* work_func(void* unusedParam) {
     int num_jobs_finished = (jobs_head - queue_head)/SIZE_PER_JOB;
     transfer_job(num_jobs_finished, 1);
   }
+  return NULL;
 }
 
 void move_head() {

@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <time.h>
 #include "data_structure.h"
+#include "transfer_manager.h"
 
 extern pthread_cond_t status_update_cv;
 extern pthread_mutex_t status_update_m;
@@ -22,9 +23,12 @@ extern int isLocal;
 extern struct sockaddr_storage their_addr;
 extern struct addrinfo hints, *servinfo, *p;
 extern socklen_t addr_len;
+extern int request_num;
 int transfer_sockfd;
 //Interval for update current status to remote node in ms
 long send_interval = 1;
+
+void* transfer_job(int num, int isFinished);
 
 void state_manager_init() {
   transfer_sockfd = isLocal? control_sockfd : accept_control_sockfd;
@@ -32,10 +36,19 @@ void state_manager_init() {
 
 void* listenOnControl(void* unusedParam) {
   int numbytes;
+  char recvBuf[256];
   while(1) {
-    if((numbytes = recvfrom(transfer_sockfd, remote_status, sizeof(status_info), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+    memset(recvBuf, 0, 256);
+    if((numbytes = recvfrom(transfer_sockfd, recvBuf, sizeof(status_info), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("control channel recvfrom");
       continue;
+    }
+    if(strstr(recvBuf, "TRANSFER")) {
+      int transfer_size = ntohs(*((int*)(recvBuf + 9)));
+      transfer_job(transfer_size, 0);
+    }
+    else {
+      remote_status = (status_info*)recvBuf;
     }
     pthread_cond_broadcast(&status_update_cv);
   }
@@ -47,7 +60,18 @@ void* sendToControl(void* unusedParam) {
   sleepFor.tv_sec = send_interval;
   sleepFor.tv_nsec = 0;
   while(1) {
-    printf("Current State: trottling_value %fl, cpu_usage %fl, queue_length %d\n", local_status->trottling_value, local_status->cpu_usage, local_status->queue_length);
+    if(request_num > 0) {
+      char* sendBuf = (char*)malloc(sizeof(int) + 9);
+      memcpy(sendBuf, "TRANSFER", 9);
+      int send_num = htons(request_num);
+      memcpy(sendBuf + 9, &send_num, sizeof(int));
+      if((numbytes = sendto(transfer_sockfd, sendBuf, sizeof(int) + 9, 0, p->ai_addr, p->ai_addrlen)) == -1) {
+        perror("sendto");
+        continue;
+      }
+      free(sendBuf);
+    }
+    printf("Current State: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", local_status->trottling_value, local_status->cpu_usage, local_status->queue_length, local_status->time_per_job);
     if((numbytes = sendto(transfer_sockfd, local_status, sizeof(status_info), 0, p->ai_addr, p->ai_addrlen)) == -1) {
       perror("sendto");
       continue;
@@ -69,6 +93,7 @@ void* startStateManager(void* unusedParam) {
     pthread_t listeningThread;
     pthread_create(&listeningThread, 0, listenOnControl, (void*)0);
   }
+  return NULL;
 }
 
 

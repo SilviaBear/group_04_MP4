@@ -4,6 +4,6 @@ typedef struct _status_info {
   double trottling_value;
   double cpu_usage;
   int queue_length;
-  double ETC;
+  long time_per_job;
 } status_info;
 #endif

@@ -14,8 +14,6 @@
 #include "state_manager.h"
 #include "data_structure.h"
 
-#define NETWORK_DELAY 208
-
 //Transfer strategy, return 1 if decide to transfer
 void decideTransfer();
 void* work_func(void* unusedParam);

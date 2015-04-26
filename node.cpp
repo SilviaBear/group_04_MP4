@@ -97,8 +97,10 @@ int main(int argc, char *argv[]) {
   queue_head = jobs_head;
   local_status = (status_info*)malloc(sizeof(status_info));
   local_status->trottling_value = 1.0;
+  local_status->time_per_job = 1000;
   remote_status = (status_info*)malloc(sizeof(status_info));
   remote_status->trottling_value = 1.0;
+  local_status->time_per_job = 1000;
   //If this node is remote, do not need to specify the remote host as it will listen for connections, but need to bind to local ports
   if(!isLocal) {
     local_data_port = argv[2];

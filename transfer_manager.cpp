@@ -29,16 +29,21 @@ extern pthread_mutex_t queue_m;
 extern pthread_mutex_t status_update_m;
 extern pthread_cond_t queue_cv;
 
-int sockfd;
+int state_sockfd;
 void* accept_job(void* unusedParam);
 
 void transfer_manager_init() {
-  sockfd = isLocal? data_sockfd : accept_data_sockfd;
+  state_sockfd = isLocal? data_sockfd : accept_data_sockfd;
 }
 
 double* find_end();
 
 void* transfer_job(int num, int isFinished) {
+  if(num > local_status->queue_length) {
+    printf("Do no need to transfer request %d queue_length %d\n", num, local_status->queue_length);
+    return NULL;
+  }
+  pthread_mutex_lock(&queue_m);
   addr_len = sizeof(their_addr);
   int numbytes;
   int send_num = htons(num);
@@ -53,26 +58,24 @@ void* transfer_job(int num, int isFinished) {
   memcpy(sendBuf + 6, &null_terminator, 1);
   memcpy(sendBuf + 7, &send_num, sizeof(int));
   //Send sentinel packet for job transfer start
-  if((numbytes = sendto(sockfd, sendBuf, 7 + sizeof(int), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+  if((numbytes = sendto(state_sockfd, sendBuf, 7 + sizeof(int), 0, p->ai_addr, p->ai_addrlen)) == -1) {
     perror("sendto");
     exit(1);
   }
-  pthread_mutex_lock(&queue_m);
   double* queue_end = find_end();
   int i;
   //Send each job trunk
   for(i = 0; i < num; i++) {
     //If local node, transfer the jobs from last significant bit
     if(isLocal) {
-      //printf("Transfer job: %d\n", i);
-      if((numbytes = sendto(sockfd, queue_end - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+      if((numbytes = sendto(state_sockfd, queue_end - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("transfer_job sendto");
         exit(1);
       }
     }
     //If remote node, transfer the jobs from most significant bit
     else {
-      if((numbytes = sendto(sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+      if((numbytes = sendto(state_sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("sendto");
         exit(1);
       }
@@ -82,13 +85,14 @@ void* transfer_job(int num, int isFinished) {
   local_status->queue_length -= num;
   pthread_mutex_unlock(&queue_m);
   printf("Transfer work: %d jobs\n", num);
+  return NULL;
 }
 
 void* accept_job(void* unusedParam) {
   int numbytes;
   char* recvBuf = (char*)malloc(256 * sizeof(char));
   while(1) {
-    if((numbytes = recvfrom(sockfd, recvBuf, 256, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+    if((numbytes = recvfrom(state_sockfd, recvBuf, 256, 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
       perror("accept_job sentinel recvfrom");
       exit(1);
     }
@@ -103,14 +107,14 @@ void* accept_job(void* unusedParam) {
       for(i = 0; i < num; i++) {
         //For local node, put new jobs after the least significant bit of current job
         if(isLocal) {
-          if((numbytes = recvfrom(sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+          if((numbytes = recvfrom(state_sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("accept_job recvfrom");
             exit(1);
           }
         }
         //For remote node, put the new jobs before the most significant bit of current job list
         else{
-          if((numbytes = recvfrom(sockfd, end_of_queue - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+          if((numbytes = recvfrom(state_sockfd, end_of_queue - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
           }
@@ -129,7 +133,7 @@ void* accept_job(void* unusedParam) {
       pthread_mutex_lock(&queue_m);
       double* end_of_queue = find_end();
       for(i = 0; i < num; i++) {
-        if((numbytes = recvfrom(sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        if((numbytes = recvfrom(state_sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("accept_job recvfrom");
             exit(1);
           }
