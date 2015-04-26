@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include "huffman.h"
 #include "data_structure.h"
 
 extern long SIZE_PER_JOB;
@@ -64,8 +65,13 @@ void* transfer_job(int num, int isFinished) {
   if(isFinished) {
     int total_finished_jobs = (jobs_head - queue_head) / SIZE_PER_JOB;
     int i;
+    unsigned char* origin_buf = (unsigned char*)(jobs_head - i * SIZE_PER_JOB);
+    unsigned char* compressed_buf;
+    uint32_t len = 0;
+    huffman_encode_memory(origin_buf, SIZE_PER_JOB * sizeof(double), &compressed_buf, &len);
+    printf("Initial length: %d compressed length: %d\n", SIZE_PER_JOB * sizeof(double), len);
     for(i = 0; i < total_finished_jobs; i++) {
-      if((numbytes = sendto(state_sockfd, jobs_head - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+      if((numbytes = sendto(state_sockfd, compressed_buf, len, 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("transfer_job sendto");
         exit(1);
       } 
@@ -80,14 +86,23 @@ void* transfer_job(int num, int isFinished) {
     for(i = 0; i < num; i++) {
       //If local node, transfer the jobs from last significant bit
       if(isLocal) {
-	if((numbytes = sendto(state_sockfd, queue_end - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+	unsigned char* origin_buf = (unsigned char*)(queue_end - i * SIZE_PER_JOB);
+	unsigned char* compressed_buf;
+	uint32_t len = 0;
+	huffman_encode_memory(origin_buf, SIZE_PER_JOB * sizeof(double), &compressed_buf, &len);
+    
+	if((numbytes = sendto(state_sockfd, compressed_buf, len, 0, p->ai_addr, p->ai_addrlen)) == -1) {
 	  perror("transfer_job sendto");
 	  exit(1);
 	}
       }
       //If remote node, transfer the jobs from most significant bit
       else {
-	if((numbytes = sendto(state_sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+	unsigned char* origin_buf = (unsigned char*)(queue_end + i * SIZE_PER_JOB);
+	unsigned char* compressed_buf;
+	uint32_t len = 0;
+	huffman_encode_memory(origin_buf, SIZE_PER_JOB * sizeof(double), &compressed_buf, &len);    
+	if((numbytes = sendto(state_sockfd, compressed_buf, len, 0, p->ai_addr, p->ai_addrlen)) == -1) {
 	  perror("sendto");
 	  exit(1);
 	}
@@ -120,17 +135,27 @@ void* accept_job(void* unusedParam) {
       for(i = 0; i < num; i++) {
         //For local node, put new jobs after the least significant bit of current job
         if(isLocal) {
-          if((numbytes = recvfrom(state_sockfd, end_of_queue + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+	  unsigned char* recvBuf = (char*)malloc(SIZE_PER_JOB * sizeof(double));
+          if((numbytes = recvfrom(state_sockfd, recvBuf, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("accept_job recvfrom");
             exit(1);
           }
+	  uint32_t len = 0;
+	  unsigned char* origin_buf = (unsigned_char*)(end_of_queue + i * SIZE_PER_JOB);
+	  uint32_t ori_len;
+	  huffman_decode_memory(recvBuf, numbytes, &origin_buf, &ori_len);
         }
         //For remote node, put the new jobs before the most significant bit of current job list
         else{
+	  unsigned char* recvBuf = (char*)malloc(SIZE_PER_JOB * sizeof(double));
           if((numbytes = recvfrom(state_sockfd, end_of_queue - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
           }
+	  uint32_t len = 0;
+	  unsigned char* origin_buf = (unsigned_char*)(end_of_queue - i * SIZE_PER_JOB);
+	  uint32_t ori_len;
+	  huffman_decode_memory(recvBuf, numbytes, &origin_buf, &ori_len);
         }
       }
       local_status->queue_length += num;
