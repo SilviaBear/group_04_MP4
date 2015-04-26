@@ -38,9 +38,6 @@ long initialTime;
 //If local node, the requested number of jobs to be transferred from remote node
 int request_num = -1;
 
-//Only start decision after local node is stably working, we set it to be after 10 sec
-int start_decision = 0;
-
 extern int isLocal;
 extern double* queue_head;
 extern double* jobs_head;
@@ -53,10 +50,11 @@ void* adaptor_func(void* unusedParam) {
   pthread_t workingThread, monitorThread, remoteStateThread, acceptThread;
   pthread_create(&workingThread, 0, work_func, (void*)0);
   pthread_create(&monitorThread, 0, startMonitor, (void*)0);
-  //pthread_create(&remoteStateThread, 0, startStateManager, (void*)0);
+  pthread_create(&remoteStateThread, 0, startStateManager, (void*)0);
   pthread_create(&acceptThread, 0, accept_job, (void*)0);
   //Local node decide the transfer strategy
   if(isLocal) {
+    int round = 0;
     while(1) {
       int sleep = 1;
       pthread_mutex_lock(&status_update_m);
@@ -65,15 +63,17 @@ void* adaptor_func(void* unusedParam) {
         sleep = 0;
       }
       pthread_mutex_unlock(&status_update_m);
-      if(start_decision) {
-        //  printf("Start to decide transfer jobs\n");
+      //Start decision after 30 sec when the performance is stable
+      if(round > 30) {
+        printf("Start to decide transfer jobs\n");
         decideTransfer();
       }
+      round++;
     }
   }
   pthread_join(workingThread, NULL);
   pthread_join(monitorThread, NULL);
-  //pthread_join(remoteStateThread, NULL);
+  pthread_join(remoteStateThread, NULL);
   pthread_join(acceptThread, NULL);
   return NULL;
 }
@@ -103,13 +103,11 @@ double calculateECT(status_info* status) {
 }
 
 void* work_func(void* unusedParam) {
-  printf("Working thread start\n");
   struct timespec sleepFor;
   struct timeval workStart;
   struct timeval workEnd;
   struct timeval start_work;
   while(1) {
-    printf("Wait before lock\n");
     pthread_mutex_lock(&queue_m);
     printf("Local queue_length: %d\n", local_status->queue_length);
     while(local_status->queue_length == 0) {
@@ -118,7 +116,6 @@ void* work_func(void* unusedParam) {
     pthread_mutex_unlock(&queue_m);
     gettimeofday(&start_work, 0);
     initialTime = start_work.tv_sec * 1000 * 1000 + start_work.tv_usec;
-    printf("Get initial working time \n");
     while(local_status->queue_length > 0) {
       gettimeofday(&workStart, 0);
       double* current = queue_head;

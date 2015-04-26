@@ -65,9 +65,6 @@ void getTimePerJob() {
   struct timeval t;
   gettimeofday(&t, 0);
   long currentTime = t.tv_sec * 1000 * 1000 + t.tv_usec;
-  if(currentTime - initialTime > 10 * 1000 * 1000) {
-    start_decision = 1;
-  }
   long jobs_finished =  isLocal? (queue_head - jobs_head) / (long)SIZE_PER_JOB : (jobs_head - queue_head) / (long)SIZE_PER_JOB;
   if(jobs_finished == 0) {
     return;

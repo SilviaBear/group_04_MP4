@@ -62,6 +62,7 @@ void* transfer_job(int num, int isFinished) {
     perror("sendto");
     exit(1);
   }
+  printf("Send sentine bits for request of %d \n", num);
   double* queue_end = find_end();
   int i;
   //Send each job trunk
@@ -84,7 +85,7 @@ void* transfer_job(int num, int isFinished) {
   //Decrease the local work queue length
   local_status->queue_length -= num;
   pthread_mutex_unlock(&queue_m);
-  printf("Transfer work: %d jobs\n", num);
+  printf("Transfer work: %d jobs, after transfer local queue_length %d \n", num, local_status->queue_length);
   return NULL;
 }
 
