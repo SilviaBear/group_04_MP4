@@ -15,6 +15,8 @@
 
 extern pthread_cond_t status_update_cv;
 extern pthread_mutex_t status_update_m;
+extern pthread_cond_t queue_cv;
+extern pthread_mutex_t queue_m;
 extern status_info* local_status;
 extern status_info* remote_status;
 extern int control_sockfd;
@@ -28,10 +30,24 @@ int transfer_sockfd;
 //Interval for update current status to remote node in s
 long send_interval = 5;
 
+int shouldUpdate = 1;
+int remote_finished;
+
 void* transfer_job(int num, int isFinished);
 
 void state_manager_init() {
   transfer_sockfd = isLocal? control_sockfd : accept_control_sockfd;
+}
+
+void sendFinalRequest() {
+  int numbytes;
+  char sendBuf[256];
+  memset(sendBuf, 0, 256);
+  memcpy(sendBuf, "FINAL", 6);
+  if((numbytes = sendto(transfer_sockfd, sendBuf, 6, 0, p->ai_addr, p->ai_addrlen)) == -1) {
+    perror("Send final update");
+  }
+  printf("Send final transfer command to remote node.\n");
 }
 
 void* listenOnControl(void* unusedParam) {
@@ -47,6 +63,15 @@ void* listenOnControl(void* unusedParam) {
       int transfer_size = ntohs(*((int*)(recvBuf + 9)));
       transfer_job(transfer_size, 0);
     }
+    else if(strstr(recvBuf, "FINAL")) {
+      pthread_mutex_lock(&queue_m);
+      while(local_status->queue_length != 0) {
+	pthread_cond_wait(&queue_cv, &queue_m);
+      }
+      pthread_mutex_unlock(&queue_m);
+      shouldUpdate = 0;
+      transfer_job(0, 1);
+    }
     else {
       memcpy(remote_status, recvBuf, sizeof(status_info));
       //printf("Current remote state: trottling_value %fl, cpu_usage %fl, queue_length %d, time_per_job %lu\n", remote_status->trottling_value, remote_status->cpu_usage, remote_status->queue_length, remote_status->time_per_job); 
@@ -61,6 +86,10 @@ void* sendToControl(void* unusedParam) {
   sleepFor.tv_sec = send_interval;
   sleepFor.tv_nsec = 0;
   while(1) {
+    if(!shouldUpdate) {
+      return NULL;
+    }
+
     if(request_num > 0) {
       char* sendBuf = (char*)malloc(sizeof(int) + 8);
       memcpy(sendBuf, "TRANSFER", 8);
@@ -81,6 +110,9 @@ void* sendToControl(void* unusedParam) {
     }
     nanosleep(&sleepFor, 0);
   }
+}
+
+void sendFinishSignale() {
 }
 
 void* startStateManager(void* unusedParam) {

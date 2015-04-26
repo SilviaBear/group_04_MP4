@@ -29,6 +29,9 @@ extern pthread_mutex_t queue_m;
 extern pthread_mutex_t status_update_m;
 extern pthread_cond_t queue_cv;
 
+extern int shouldUpdate;
+extern int remote_finished;
+
 int state_sockfd;
 void* accept_job(void* unusedParam);
 
@@ -48,44 +51,53 @@ void* transfer_job(int num, int isFinished) {
   int numbytes;
   int send_num = htons(num);
   char sendBuf[256];
-  char null_terminator = '\0';
-  if(isFinished) {
-    memcpy(sendBuf, "ENDING", 6);
-  }
-  else {
-    memcpy(sendBuf, "START:", 6);
-  }
-  memcpy(sendBuf + 6, &null_terminator, 1);
+  memset(sendBuf, 0, 256);
+  memcpy(sendBuf, "START:", 7);
   memcpy(sendBuf + 7, &send_num, sizeof(int));
   //Send sentinel packet for job transfer start
   if((numbytes = sendto(state_sockfd, sendBuf, 7 + sizeof(int), 0, p->ai_addr, p->ai_addrlen)) == -1) {
     perror("sendto");
     exit(1);
   }
-  printf("Send sentine bits for request of %d \n", num);
-  double* queue_end = find_end();
-  int i;
-  //Send each job trunk
-  for(i = 0; i < num; i++) {
-    //If local node, transfer the jobs from last significant bit
-    if(isLocal) {
-      if((numbytes = sendto(state_sockfd, queue_end - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+  printf("Send sentinel bits for request of %d \n", num);
+
+  if(isFinished) {
+    int total_finished_jobs = (jobs_head - queue_head) / SIZE_PER_JOB;
+    int i;
+    for(i = 0; i < total_finished_jobs; i++) {
+      if((numbytes = sendto(state_sockfd, jobs_head - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("transfer_job sendto");
         exit(1);
-      }
+      } 
     }
-    //If remote node, transfer the jobs from most significant bit
-    else {
-      if((numbytes = sendto(state_sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
-        perror("sendto");
-        exit(1);
-      }
-    }
+    printf("Remote node transfer all finished jobs back.\n");
+    return NULL;
   }
+  else {
+    double* queue_end = find_end();
+    int i;
+    //Send each job trunk
+    for(i = 0; i < num; i++) {
+      //If local node, transfer the jobs from last significant bit
+      if(isLocal) {
+	if((numbytes = sendto(state_sockfd, queue_end - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+	  perror("transfer_job sendto");
+	  exit(1);
+	}
+      }
+      //If remote node, transfer the jobs from most significant bit
+      else {
+	if((numbytes = sendto(state_sockfd, queue_end + i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, p->ai_addr, p->ai_addrlen)) == -1) {
+	  perror("sendto");
+	  exit(1);
+	}
+      }
+    }
   //Decrease the local work queue length
   local_status->queue_length -= num;
   pthread_mutex_unlock(&queue_m);
   printf("Transfer work: %d jobs, after transfer local queue_length %d \n", num, local_status->queue_length);
+  }
   return NULL;
 }
 
@@ -152,3 +164,4 @@ double* find_end() {
     return queue_head - local_status->queue_length * SIZE_PER_JOB;
   }
 }
+

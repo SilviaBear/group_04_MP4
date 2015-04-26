@@ -38,6 +38,8 @@ long initialTime;
 //If local node, the requested number of jobs to be transferred from remote node
 int request_num = -1;
 
+extern int shouldUpdate;
+
 extern int isLocal;
 extern double* queue_head;
 extern double* jobs_head;
@@ -84,12 +86,19 @@ void decideTransfer() {
   //Transfer jobs to remote node
   if(local_ECT > remote_ECT && /*remote_status->cpu_usage < 0.95 &&*/ local_status->time_per_job > NETWORK_DELAY) {
     int num_jobs = getTransferSize(local_ECT, local_status->time_per_job, remote_ECT, remote_status->time_per_job);
+    if(num_jobs < 20) {
+      return;
+    }
     printf("Decide to transfer %d job\n", num_jobs);
     transfer_job(num_jobs, 0);
   }
   //Require remote node to transfer
   else if(remote_ECT > local_ECT && /*local_status->cpu_usage < 0.95 && */remote_status->time_per_job > NETWORK_DELAY) {
-    request_num = getTransferSize(remote_ECT, remote_status->time_per_job, local_ECT, local_status->time_per_job);
+    int num_jobs = getTransferSize(remote_ECT, remote_status->time_per_job, local_ECT, local_status->time_per_job);
+    if(num_jobs < 20) {
+      return;
+    }
+    request_num = num_jobs;
     printf("Decide to request remote to transfer %d job\n", request_num);
   }
 }
@@ -104,6 +113,7 @@ void* work_func(void* unusedParam) {
   struct timeval workEnd;
   struct timeval start_work;
   while(1) {
+    pthread_cond_broadcast(&queue_cv);
     pthread_mutex_lock(&queue_m);
     printf("Local queue_length: %d\n", local_status->queue_length);
     while(local_status->queue_length == 0) {
@@ -128,6 +138,11 @@ void* work_func(void* unusedParam) {
       move_head();
       local_status->queue_length--;
       pthread_mutex_unlock(&queue_m);
+      if(local_status->queue_length == 0 && isLocal) {
+	shouldUpdate = 0;
+	sendFinalRequest();
+	printf("All work finished an transfer back.\n");
+      }
       gettimeofday(&workEnd, 0);
       //thread working time in ms
       long workTime = workEnd.tv_usec - workStart.tv_usec;
@@ -135,9 +150,6 @@ void* work_func(void* unusedParam) {
       //sleep time in ns
       sleepFor.tv_nsec = (long)((1 - local_status->trottling_value)/local_status->trottling_value) * workTime * 1000 * 1000;
       nanosleep(&sleepFor, 0);
-    }
-    if(local_status->queue_length == 0) {
-      break;
     }
   }
   //Remote node gather data trunk back to local node

@@ -11,7 +11,6 @@
 #include <pthread.h>
 #include <time.h>
 
-//Interval for update current status to remote node
-//long send_interval;
 
 void* startStateManager(void* unusedParam);
+void sendFinalRequest();
