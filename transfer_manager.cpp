@@ -69,7 +69,7 @@ void* transfer_job(int num, int isFinished) {
     unsigned char* compressed_buf;
     uint32_t len = 0;
     huffman_encode_memory(origin_buf, SIZE_PER_JOB * sizeof(double), &compressed_buf, &len);
-    printf("Initial length: %d compressed length: %d\n", SIZE_PER_JOB * sizeof(double), len);
+    printf("Initial length: %lu compressed length: %d\n", SIZE_PER_JOB * sizeof(double), len);
     for(i = 0; i < total_finished_jobs; i++) {
       if((numbytes = sendto(state_sockfd, compressed_buf, len, 0, p->ai_addr, p->ai_addrlen)) == -1) {
         perror("transfer_job sendto");
@@ -135,25 +135,25 @@ void* accept_job(void* unusedParam) {
       for(i = 0; i < num; i++) {
         //For local node, put new jobs after the least significant bit of current job
         if(isLocal) {
-	  unsigned char* recvBuf = (char*)malloc(SIZE_PER_JOB * sizeof(double));
+	  unsigned char* recvBuf = (unsigned char*)malloc(SIZE_PER_JOB * sizeof(double));
           if((numbytes = recvfrom(state_sockfd, recvBuf, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("accept_job recvfrom");
             exit(1);
           }
 	  uint32_t len = 0;
-	  unsigned char* origin_buf = (unsigned_char*)(end_of_queue + i * SIZE_PER_JOB);
+	  unsigned char* origin_buf = (unsigned char*)(end_of_queue + i * SIZE_PER_JOB);
 	  uint32_t ori_len;
 	  huffman_decode_memory(recvBuf, numbytes, &origin_buf, &ori_len);
         }
         //For remote node, put the new jobs before the most significant bit of current job list
         else{
-	  unsigned char* recvBuf = (char*)malloc(SIZE_PER_JOB * sizeof(double));
+	  unsigned char* recvBuf = (unsigned char*)malloc(SIZE_PER_JOB * sizeof(double));
           if((numbytes = recvfrom(state_sockfd, end_of_queue - i * SIZE_PER_JOB, SIZE_PER_JOB * sizeof(double), 0, (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
           }
 	  uint32_t len = 0;
-	  unsigned char* origin_buf = (unsigned_char*)(end_of_queue - i * SIZE_PER_JOB);
+	  unsigned char* origin_buf = (unsigned char*)(end_of_queue - i * SIZE_PER_JOB);
 	  uint32_t ori_len;
 	  huffman_decode_memory(recvBuf, numbytes, &origin_buf, &ori_len);
         }
