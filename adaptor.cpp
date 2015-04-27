@@ -111,7 +111,7 @@ void* calculate_func(void* start) {
   double* current = (double*)start;
   int i;
   int j;
-  for(i = 0; i < SIZE_PER_JOB; i++) {
+  for(i = 0; i < SIZE_PER_JOB / 2; i++) {
     for(j = 0; j < 1000; j++) {
       *current += 1.111111;
     }
