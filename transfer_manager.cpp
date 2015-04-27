@@ -90,7 +90,6 @@ void* transfer_job(int num, int isFinished) {
 	unsigned char* compressed_buf;
 	uint32_t len = 0;
 	huffman_encode_memory(origin_buf, SIZE_PER_JOB * sizeof(double), &compressed_buf, &len);
-    
 	if((numbytes = sendto(state_sockfd, compressed_buf, len, 0, p->ai_addr, p->ai_addrlen)) == -1) {
 	  perror("transfer_job sendto");
 	  exit(1);
@@ -107,6 +106,7 @@ void* transfer_job(int num, int isFinished) {
 	  exit(1);
 	}
       }
+      printf("transfer numbytes: %d  round %d\n", numbytes, i);
     }
   //Decrease the local work queue length
   local_status->queue_length -= num;
@@ -183,10 +183,10 @@ void* accept_job(void* unusedParam) {
 
 double* find_end() {
   if(isLocal) {
-    return queue_head + local_status->queue_length * SIZE_PER_JOB;
+    return queue_head + (local_status->queue_length - 1) * SIZE_PER_JOB;
   }
   else {
-    return queue_head - local_status->queue_length * SIZE_PER_JOB;
+    return queue_head - (local_status->queue_length - 1) * SIZE_PER_JOB;
   }
 }
 
