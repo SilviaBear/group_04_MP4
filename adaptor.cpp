@@ -107,6 +107,19 @@ double calculateECT(status_info* status) {
   return status->queue_length * status->time_per_job;
 }
 
+void* calculate(void* start) {
+  double* current = (double*)start;
+  int i;
+  int j;
+  for(i = 0; i < SIZE_PER_JOB / 2; i++) {
+    for(j = 0; j < 1000; j++) {
+      *current += 1.111111;
+    }
+    current++;
+  }
+  return NULL;
+}
+
 void* work_func(void* unusedParam) {
   struct timespec sleepFor;
   struct timeval workStart;
@@ -126,14 +139,10 @@ void* work_func(void* unusedParam) {
       gettimeofday(&workStart, 0);
       double* current = queue_head;
       printf("Start working on: %lu\n", isLocal? (queue_head - jobs_head)/SIZE_PER_JOB : (jobs_head - queue_head)/SIZE_PER_JOB);
-      int i;
-      int j;
-      for(i = 0; i < SIZE_PER_JOB; i++) {
-        for(j = 0; j < 1000; j++) {
-          *current += 1.111111;
-        }
-        current++;
-      }
+      pthread_t helperThread;
+      pthread_create(&helperThread, 0, calculate, (void*)(current + SIZE_PER_JOB / 2));
+      calculate(current);
+      pthread_join(helperThread, 0);
       pthread_mutex_lock(&queue_m);
       move_head();
       local_status->queue_length--;
